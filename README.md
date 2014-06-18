@@ -1,12 +1,12 @@
 instacq
 =======
-a zero-frills instagram acquisition tool
+a zero-frills instagram acquisition tool<br />
 [detailed installation guide](https://github.com/NYULibraries/instacq/wiki/Detailed-Installation-Guide)
 prerequisites 
 -------------
 
-* postgresql database (9.1 or greater)
-* Java (7 or greater)
+* postgresql database (tested on 9.3)
+* Java (tested on 7)
 * SBT (tested on v0.13.5)
 * An instagram client_id
 
