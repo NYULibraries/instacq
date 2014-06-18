@@ -1,7 +1,7 @@
 instacq
 =======
 a zero-frills instagram acquisition tool
-
+[detailed installation guide](https://github.com/NYULibraries/instacq/wiki/Detailed-Installation-Guide)
 prerequisites 
 -------------
 
