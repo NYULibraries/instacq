@@ -7,7 +7,7 @@ import scala.slick.driver.PostgresDriver.simple._
 import scala.collection.mutable.{MutableList, Map}
 
 class Db(conf: Config){
-  val connection = Database.forURL(conf.getString("db.url") + conf.getString("db.port") + "/insg", driver = "org.postgresql.Driver", user = conf.getString("db.user"), password = conf.getString("db.pass"))	
+  val connection = Database.forURL((conf.getString("db.url") + ":" + conf.getString("db.port") + "/" + conf.getString("db.name")), driver = "org.postgresql.Driver", user = conf.getString("db.user"), password = conf.getString("db.pass"))	
 
   val accounts = TableQuery[Accounts]
   val crawls = TableQuery[Crawls]
@@ -165,12 +165,6 @@ class Db(conf: Config){
   	connection.withSession{implicit session =>
   		(accounts.ddl ++ crawls.ddl ++ images.ddl ++ comments.ddl).create
   	}
-  }
-
-  def createCommentTable(){
-    connection.withSession{implicit session =>
-      (comments.ddl).create
-    }
   }
 
   //crawl functions

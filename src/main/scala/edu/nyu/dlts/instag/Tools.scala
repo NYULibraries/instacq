@@ -1,12 +1,16 @@
 package edu.nyu.dlts.instag
 import org.slf4j.LoggerFactory
 
-object initDB{
-  def main(args: Array[String]){
-    val session = new Session
-    session.db.createTables
-  }
+
+class InitDatabase{
+  val logger = LoggerFactory.getLogger(classOf[InitDatabase])
+  val session = new Session
+  session.db.createTables
+  logger.info("Instacq database tables created")
 }
+
+object InitDatabase extends App{new InitDatabase}
+
 
 
 class AddAccountToDB{
