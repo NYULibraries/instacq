@@ -1,0 +1,6 @@
+target/*
+project/project/*
+project/target/*
+
+src/main/resources/application.conf
+src/main/resources/log4j.properties
