@@ -7,6 +7,7 @@ instag{
 db{
   url="jdbc:postgresql://your_db_server"
   port=5432
+  name=your_db_name
   user=your_pg_user
   pass=your_pg_pass
 }
