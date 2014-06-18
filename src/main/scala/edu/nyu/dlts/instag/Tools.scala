@@ -1,7 +1,5 @@
 package edu.nyu.dlts.instag
 import org.slf4j.LoggerFactory
-import com.typesafe.scalalogging.slf4j.Logger
-import org.apache.log4j.{PropertyConfigurator, LogManager, Level}
 
 object initDB{
   def main(args: Array[String]){
@@ -12,9 +10,7 @@ object initDB{
 
 
 class AddAccountToDB{
-  val logger = Logger(LoggerFactory.getLogger(classOf[AddAccountToDB]))
-  PropertyConfigurator.configure("log4j.properties")
-
+  val logger = LoggerFactory.getLogger(classOf[AddAccountToDB])
   val session = new Session
   val in = readLine("enter name to search for: ")
   val users = session.requests.findUserByUsername(in)

@@ -5,13 +5,11 @@ import org.apache.http.impl.client.HttpClients
 import java.util.UUID
 import java.io.File
 import org.slf4j.LoggerFactory
-import com.typesafe.scalalogging.slf4j.Logger
-import org.apache.log4j.{PropertyConfigurator, LogManager, Level}
+
 
 class Crawl(){
 
-  val logger = Logger(LoggerFactory.getLogger(classOf[Crawl]))
-  PropertyConfigurator.configure("log4j.properties")
+  val logger = LoggerFactory.getLogger(classOf[Crawl])
   val conf = ConfigFactory.load()
   val db = new Db(conf)
   val client = HttpClients.createDefault()
