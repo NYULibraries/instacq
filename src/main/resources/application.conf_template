@@ -1,0 +1,12 @@
+instag{
+  client_id=your_client
+  endpoint="https://api.instagram.com/v1/"
+  data_dir="/dir/to/store/images"
+}
+
+db{
+  url="jdbc:postgresql://your_db_server"
+  port=5432
+  user=your_pg_user
+  pass=your_pg_pass
+}
