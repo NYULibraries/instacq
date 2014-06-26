@@ -178,6 +178,28 @@ class Db(conf: Config){
     }
   }
 
+  def getCrawls(): List[Map[String,String]] = {
+    val cids = new MutableList[Map[String,String]]
+    connection.withSession{ implicit session =>
+      crawls.foreach{c =>
+	val map = Map.empty[String, String]
+	map("id") = c._1.toString
+	map("date") = c._3.toString
+	map("images") = images.filter(_.crawlId === c._1).list.size.toString
+	
+	val q = for{
+	  co <- comments
+	  i <- images 
+	  if co.imageId === i.id && i.crawlId === c._1 
+ 	} yield (co.id)
+	
+	map("comments") = q.list.size.toString
+	cids += map
+      }
+    }
+    cids.toList
+  }
+
   def deleteCrawl(id: UUID): Unit = {
     connection.withSession{ implicit session =>
       images.filter(_.id === id).delete
@@ -186,5 +208,4 @@ class Db(conf: Config){
   //misc functions 
   def timestamp(): Timestamp = {new Timestamp(new Date().getTime())}
   def timestamp(time: String): Timestamp = {new Timestamp(new Date(time.toLong * 1000l).getTime)}
-
 }
