@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory
 class Crawl(){
 
   val session = new Session
+  val crawlUUID = UUID.randomUUID
+ 
   session.logger.info("Starting instacq crawl")
   
   def crawlImages{
@@ -19,32 +21,23 @@ class Crawl(){
     session.db.getAccounts.foreach{account => 
       session.logger.info("new image crawl started")
       val userUUID = UUID.fromString(account("id"))
-      val crawlUUID = UUID.randomUUID
-      val crawlDir = new File(session.conf.getString("instag.data_dir"), crawlUUID.toString)
       session.db.addCrawl(crawlUUID, userUUID)    
-      crawlDir.mkdir
-
       val images = session.requests.getImagesById(account("userId"))
+
       images.foreach{image =>
-	if(! mediaIds.contains(image._1)){
-          session.logger.info("adding image: " + image._1)
-          
-          val mediaMap = session.requests.getImageById(image._1)
-	  mediaMap("accountId") = account("id")
-          mediaMap("crawlId") = crawlUUID.toString
-          mediaMap("mediaId") = image._1
-          mediaMap("imageUrl") = image._2		    
-      
-	  writeFile(image._2, crawlDir)		    
-          session.db.addImage(mediaMap)
+	if(! mediaIds.contains(image)){
+          session.logger.info("adding image: " + image)
+          var media = session.requests.getImageById(image)
+          media += ("accountId" -> account("id"))          
+          media += ("crawlId" -> crawlUUID.toString)
+          media += ("mediaId" -> image)
+          writeFile(media)
+          session.db.addImage(media)
           imageCount += 1
 	}
       }
     
-      if(crawlDir.list().length == 0){
-	crawlDir.delete
-	session.db.deleteCrawl(crawlUUID)
-      }
+ 
       session.logger.info("image crawl complete")
       session.logger.info(imageCount + " images added")
     }
@@ -64,8 +57,9 @@ class Crawl(){
 	comments.foreach{comment =>
           if(! commentIds.contains(comment("commentId"))){
             session.logger.info("adding comment: " + comment("commentId"))
-            comment("imageId") = imageUUID.toString
-            session.db.addComment(comment)
+            var c = comment ++ Map("imageId" -> imageUUID.toString)
+            c += ("crawlId" -> crawlUUID.toString)
+            session.db.addComment(c)
             commentCount += 1
           }
 	}
@@ -75,9 +69,14 @@ class Crawl(){
     session.logger.info(commentCount + " comments added")
   }
 
-  def writeFile(url: String, dir: File){
-    val file = new File(dir, url.split("/").last)
-    new ImageDownload(url, file, session.client)
+  def writeFile(media: Map[String, String]){
+    val standardDir = new File(session.conf.getString("instag.data_dir"), "standard")
+    val lowDir = new File(session.conf.getString("instag.data_dir"), "low")
+    val thumbDir = new File(session.conf.getString("instag.data_dir"), "thumb")
+
+    new ImageDownload(media("standardUrl"), new File(standardDir, media("standardUrl").split("/" ).last), session.client)
+    new ImageDownload(media("lowUrl"), new File(lowDir, media("lowUrl").split("/" ).last), session.client)
+    new ImageDownload(media("thumbUrl"), new File(thumbDir, media("thumbUrl").split("/" ).last), session.client)
   }
 }
 

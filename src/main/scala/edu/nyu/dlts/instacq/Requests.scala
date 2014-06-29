@@ -9,7 +9,6 @@ import org.apache.http.util.EntityUtils
 import org.codehaus.jackson.map.ObjectMapper
 import org.codehaus.jackson.JsonNode
 import scala.io.Source
-import scala.collection.mutable.{MutableList, Map}
 import scala.annotation.tailrec
 
 class Requests(client: CloseableHttpClient, conf: Config){
@@ -26,83 +25,86 @@ class Requests(client: CloseableHttpClient, conf: Config){
   }	
   
   def getUserById(uId: String): Map[String, String] ={
-    val map = Map.empty[String, String]
     val get = new HttpGet(conf.getString("instag.endpoint") + "users/" + uId + "/?client_id=" + conf.getString("instag.client_id"))
     val root = request(get)
-    map.put("uId", uId)
-    map.put("uName", root.get("data").get("username").getTextValue)
-    map.put("uFullName", root.get("data").get("full_name").getTextValue)
+    var map = Map("uId" -> uId)
+    map += ("uName" -> root.get("data").get("username").getTextValue)
+    map += ("uFullName" -> root.get("data").get("full_name").getTextValue)
     map
   }
 
-  def getImagesById(uId: String): Map[String, String] = {
+  def getImagesById(uId: String): List[String] = {
     val url = conf.getString("instag.endpoint") + "/users/" +  uId + "/media/recent?client_id=" + conf.getString("instag.client_id")
-    val map = Map.empty[String, String]
+    var list = List.empty[String]
     getResult(url)
+
     @tailrec 
     def getResult(url :String): Unit = {
       val rootNode = request(new HttpGet(url))
       val pageNode = rootNode.get("pagination")
       val dataNode = rootNode.get("data")
-      
+
       (0 to dataNode.size - 1).foreach{i => 
-	map(dataNode.get(i).get("id").getTextValue) = dataNode.get(i).get("images").get("standard_resolution").get("url").getTextValue
+	list :::= List(dataNode.get(i).get("id").getTextValue)
       }
 	
       if(pageNode.size == 2) getResult(pageNode.get("next_url").getTextValue)
     }
-    map
+
+    list
   }
 
   def getImageById(id: String): Map[String, String] ={
-    val map = Map.empty[String, String]
     val get = new HttpGet(conf.getString("instag.endpoint") + "/media/" + id + "/?client_id=" + conf.getString("instag.client_id"))
     val rootNode = request(get)
     val dataNode = rootNode.get("data")	
+    val imageNode = dataNode.get("images")
 
-    map("createdTime") = dataNode.get("created_time").getTextValue
+    var map = Map("createdTime" -> dataNode.get("created_time").getTextValue)
+    map += ("standardUrl" -> imageNode.get("standard_resolution").get("url").getTextValue)
+    map += ("lowUrl" -> imageNode.get("low_resolution").get("url").getTextValue)
+    map += ("thumbUrl" -> imageNode.get("thumbnail").get("url").getTextValue)
+
     if(! dataNode.get("caption").isNull) 
-      map("caption") = dataNode.get("caption").get("text").getTextValue
+      map += ("caption" -> dataNode.get("caption").get("text").getTextValue)
     else 
-      map("caption") = ""	
+      map += ("caption" -> "")
     map
   }
 
-  def getCommentsByMediaId(id: String): MutableList[Map[String, String]] = {
+  def getCommentsByMediaId(id: String): List[Map[String, String]] = {
     import scala.collection.JavaConversions._
-    val list = new MutableList[Map[String, String]]
+    var list = new scala.collection.mutable.ListBuffer[Map[String, String]]
     val get = new HttpGet(conf.getString("instag.endpoint") + "/media/" + id + "/?client_id=" + conf.getString("instag.client_id"))
     val rootNode = request(get)  
     if(rootNode.get("meta").get("code").getIntValue == 200){
       val dataNode = rootNode.get("data").get("comments").get("data")
       dataNode.foreach{comment => 
-        val map = Map.empty[String, String]
-        map("commentId") = comment.get("id").getTextValue
-        map("text") = comment.get("text").getTextValue
-        map("createdTime") = comment.get("created_time").getTextValue
-        map("username") = comment.get("from").get("username").getTextValue
-        map("userFullName") = comment.get("from").get("full_name").getTextValue
-        map("userId") = comment.get("from").get("id").getTextValue
+        var map = Map("commentId" -> comment.get("id").getTextValue)
+        map += ("text" -> comment.get("text").getTextValue)
+        map += ("createdTime" -> comment.get("created_time").getTextValue)
+        map += ("username" -> comment.get("from").get("username").getTextValue)
+        map += ("userFullName" -> comment.get("from").get("full_name").getTextValue)
+        map += ("userId" -> comment.get("from").get("id").getTextValue)
         list += map
       }
     }
-    list
+    list.toList
   }
 
   def findUserByUsername(name: String): Map[Int, Map[String, String]] = {
     import scala.collection.JavaConversions._
-    val users = Map.empty[Int, Map[String, String]]
+    val users = scala.collection.mutable.Map.empty[Int, Map[String, String]]
     val get = new HttpGet(conf.getString("instag.endpoint") + "/users/search?q=" + name + "&client_id=" + conf.getString("instag.client_id"))
     val rootNode = request(get)
     var count = 1
     rootNode.get("data").foreach{user => 
-      val map = Map.empty[String, String]
-      map("id") = user.get("id").getTextValue
-      map("fullName") = user.get("full_name").getTextValue
-      map("username") = user.get("username").getTextValue
+      var map = Map("id" -> user.get("id").getTextValue)
+      map += ("fullName" -> user.get("full_name").getTextValue)
+      map += ("username" -> user.get("username").getTextValue)
       users(count) = map
       count += 1
     }
-    users
+    users.toMap
   }
 }

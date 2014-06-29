@@ -4,7 +4,7 @@ import com.typesafe.config.Config
 import java.util.{UUID, Date}
 import java.sql.Timestamp
 import scala.slick.driver.PostgresDriver.simple._
-import scala.collection.mutable.{MutableList, Map}
+
 
 class Db(conf: Config){
   val connection = Database.forURL((conf.getString("db.url") + ":" + conf.getString("db.port") + "/" + conf.getString("db.name")), driver = "org.postgresql.Driver", user = conf.getString("db.user"), password = conf.getString("db.pass"))	
@@ -30,29 +30,33 @@ class Db(conf: Config){
     def account = foreignKey("ACC_FK", accountId, accounts)(_.id)
   }
 
-  class Comments(tag: Tag) extends Table[(UUID, UUID, String, Timestamp, String, String, String, String)](tag, "COMMENTS"){
+  class Comments(tag: Tag) extends Table[(UUID, UUID, UUID, String, Timestamp, String, String, String, String)](tag, "COMMENTS"){
     def id = column[UUID]("ID", O.PrimaryKey)
     def imageId = column[UUID]("IMAGE_ID")
+    def crawlId = column[UUID]("CRAWL_ID")
     def commentId = column[String]("COMMENT_ID")
     def createdDate = column[Timestamp]("CREATED_DATE")
     def comment = column[String]("COMMENT", O.DBType("varchar(4000)"))
     def userId = column[String]("USER_ID")
     def userName = column[String]("USER_NAME")
     def userFullName = column[String]("USER_FULL_NAME")
-    def * = (id, imageId, commentId, createdDate, comment, userId, userName, userFullName)
+    def * = (id, imageId, crawlId, commentId, createdDate, comment, userId, userName, userFullName)
     def image = foreignKey("IMG_FK", imageId, images)(_.id)
+    def crawl = foreignKey("CRL_FK", crawlId, crawls)(_.id)
   }
 
-  class Images(tag:Tag) extends Table[(UUID, UUID, UUID, String, String, String, Timestamp, Boolean)](tag, "IMAGES"){
+  class Images(tag:Tag) extends Table[(UUID, UUID, UUID, String, String, String, String, String, Timestamp, Boolean)](tag, "IMAGES"){
     def id = column[UUID]("ID", O.PrimaryKey)
     def accountId = column[UUID]("ACCOUNT_ID")
     def crawlId = column[UUID]("CRAWL_ID")
     def mediaId = column[String]("MEDIA_ID")
-    def imageUrl = column[String]("STANDARD_URL")
+    def standardUrl = column[String]("STANDARD_URL")
+    def lowUrl = column[String]("LOW_URL")
+    def thumbUrl = column[String]("THUMB_URL")
     def caption = column[String]("CAPTION", O.DBType("varchar(4000)"))
     def createdDate = column[Timestamp]("CREATED_DATE")
     def isDownloaded = column[Boolean]("IS_DOWNLOADED")  
-    def * = (id, accountId, crawlId, mediaId, imageUrl, caption, createdDate, isDownloaded)
+    def * = (id, accountId, crawlId, mediaId, standardUrl, lowUrl, thumbUrl, caption, createdDate, isDownloaded)
     def account = foreignKey("ACC_FK", accountId, accounts)(_.id)
     def crawl = foreignKey("CRL_FK", crawlId, crawls)(_.id)
   }
@@ -62,7 +66,8 @@ class Db(conf: Config){
     connection.withSession{implicit session =>
       comments += (
         UUID.randomUUID,
-        UUID.fromString(map("imageId")), 
+        UUID.fromString(map("imageId")),
+        UUID.fromString(map("crawlId")),
         map("commentId"),
         timestamp(map("createdTime")),
         map("text"),
@@ -73,11 +78,11 @@ class Db(conf: Config){
     }
   }
 
-    def getCommentIds(): MutableList[String] = {
-    val ids = new MutableList[String]
+    def getCommentIds(): List[String] = {
+    var ids = List.empty[String]
     connection.withSession{implicit session =>
       val q = for(c <- comments) yield c.commentId
-      q.foreach{id => ids += id}
+      q.foreach{id => ids :::= List(id)}
     }
     ids
   }
@@ -89,26 +94,26 @@ class Db(conf: Config){
     }
   }
 
-  def getAccountIds(): MutableList[UUID] ={
-    val uuids = new MutableList[UUID]
+  def getAccountIds(): List[UUID] ={
+    var uuids = List.empty[UUID]
 
     connection.withSession{ implicit session =>
       val query = for(a <- accounts) yield a.id
-      query foreach{q => uuids += q}    
+      query foreach{q => uuids :::= List(q)}    
     }
     uuids
   }
 
-    def getAccounts(): MutableList[Map[String, String]] = {
-    val list = new MutableList[Map[String, String]]
+    def getAccounts(): List[Map[String, String]] = {
+    var list = List.empty[Map[String, String]]
 
     connection.withSession{ implicit session =>
       accounts foreach{ case (id, userId, userName, userFullName) =>
-        val map = Map.empty[String, String]
-        map("id") = id.toString
-        map("userId") = userId
-        map("userName") = userName
-        list += map
+        
+        var map = Map("id" -> id.toString)
+        map += ("userId" -> userId)
+        map += ("userName" -> userName)
+        list :::= List(map)
       }
     }
 
@@ -123,7 +128,9 @@ class Db(conf: Config){
         UUID.fromString(map("accountId")),
         UUID.fromString(map("crawlId")),
         map("mediaId"),
-        map("imageUrl"),
+        map("standardUrl"),
+        map("lowUrl"),
+        map("thumbUrl"),
         map("caption"),
         timestamp(map("createdTime")),
         true
@@ -131,29 +138,29 @@ class Db(conf: Config){
     }
   }
 
-  def getImageIds(): MutableList[String] = {
-    val ids = new MutableList[String]
+  def getImageIds(): List[String] = {
+    var ids = List.empty[String]
     connection.withSession{implicit session =>
       val q = for(i <- images) yield i.mediaId
-      q foreach{q => ids += q}
+      q foreach{q => ids :::= List(q)}
     }
     ids
   }
   
   def getAllImageIds(): Map[UUID, String] = {
-    val map = Map.empty[UUID, String]
+    var map = Map.empty[UUID, String]
     connection.withSession{implicit session => 
       val q = for(i <- images) yield (i.id, i.mediaId)
-      for((i,j) <- q) map(i) = j    
+      for((i,j) <- q) map += (i -> j)    
     }
     map
   }
 
   def getImageIds(num: Int): Map[UUID, String] = {
-    val map = Map.empty[UUID, String]
+    var map = Map.empty[UUID, String]
     connection.withSession{implicit session => 
       val q = for(i <- images.take(num)) yield (i.id, i.mediaId)
-      for((i,j) <- q) map(i) = j    
+      for((i,j) <- q) map += (i -> j)    
     }
     map
   }
@@ -179,25 +186,17 @@ class Db(conf: Config){
   }
 
   def getCrawls(): List[Map[String,String]] = {
-    val cids = new MutableList[Map[String,String]]
+    var cids = List.empty[Map[String,String]]
     connection.withSession{ implicit session =>
       crawls.foreach{c =>
-	val map = Map.empty[String, String]
-	map("id") = c._1.toString
-	map("date") = c._3.toString
-	map("images") = images.filter(_.crawlId === c._1).list.size.toString
-	
-	val q = for{
-	  co <- comments
-	  i <- images 
-	  if co.imageId === i.id && i.crawlId === c._1 
- 	} yield (co.id)
-	
-	map("comments") = q.list.size.toString
-	cids += map
+	var map = Map("id" -> c._1.toString)
+	map += ("date" -> c._3.toString)
+	map += ("images" -> images.filter(_.crawlId === c._1).list.size.toString)	
+	map += ("comments" -> comments.filter(_.crawlId === c._1).list.size.toString)	
+	cids :::=  List(map)
       }
     }
-    cids.toList
+    cids
   }
 
   def deleteCrawl(id: UUID): Unit = {
